@@ -6,14 +6,17 @@ chrome.runtime.onMessage.addListener(function (request, sender, sendResponse) {
   if (request.message == "Set status") {
     console.log("Setting slack status")
     setSlackStatus();
+    setSlackSnooze(60);
   }
   if (request.message == "Clear status") {
     console.log("Clearing slack status")
     clearSlackStatus();
+    setSlackSnooze(0);
   }
   if (request.message == "Page unloaded") {
     console.log("Successfully intercepted page unload")
     clearSlackStatus();
+    setSlackSnooze(0);
   }
   return true
 })
@@ -114,6 +117,37 @@ function setSlackStatus() {
     });
 
     makeSlackAPICall(raw);
+  });
+}
+
+function setSlackSnooze(minutes) {
+  chrome.storage.sync.get(["meetSlackKey"], function (result) {
+    const key = result.meetSlackKey;
+
+    if (!key) return
+
+    const headers = new Headers();
+    headers.append(
+      "Authorization",
+      `Bearer ${key}`
+    );
+    headers.append("Content-Type", "application/json");
+
+    const requestOptions = {
+      method: "POST",
+      headers,
+      redirect: "follow",
+    };
+
+    const url = new URL("https://slack.com/api/dnd.setSnooze")
+    url.searchParams.append('num_minutes', minutes)
+
+    fetch(url, requestOptions)
+      .then((response) => response.text())
+      .then((result) => {
+        console.log("Slack snooze altered")
+      })
+      .catch((error) => console.log("error", error));
   });
 }
 
