@@ -60,6 +60,7 @@ function joinMeetingCallback() {
     if (extensionStatusJSON.status == 200) {
       console.log("Successfully intercepted network request. Setting slack status.")
       setSlackStatus();
+      setSlackSnooze(60);
     }
     else {
       console.log("Not setting slack status as extension status is 400")
@@ -73,6 +74,7 @@ function exitMeetingCallback() {
     if (extensionStatusJSON.status == 200) {
       console.log("Successfully intercepted network request. Clearing slack status.")
       clearSlackStatus();
+      setSlackSnooze(0);
     }
     else {
       console.log("Not clearing slack status as extension status is 400")
@@ -165,7 +167,6 @@ function readPreMeetingSlackStatus() {
   });
 }
 
-
 function setSlackStatus() {
   let emoji = "📞";
   let text = "On a meet call • Reply may be delayed";
@@ -198,6 +199,38 @@ function setSlackStatus() {
     });
 
     makeSlackAPICall(raw, "set");
+  });
+}
+
+
+function setSlackSnooze(minutes) {
+  chrome.storage.sync.get(["meetSlackKey"], function (result) {
+    if (result.meetSlackKey) {
+      const key = result.meetSlackKey;
+
+      const headers = new Headers();
+      headers.append(
+        "Authorization",
+        `Bearer ${key}`
+      );
+      headers.append("Content-Type", "application/json");
+
+      const requestOptions = {
+        method: "POST",
+        headers,
+        redirect: "follow",
+      };
+
+      const url = new URL("https://slack.com/api/dnd.setSnooze")
+      url.searchParams.append('num_minutes', minutes)
+
+      fetch(url, requestOptions)
+        .then((response) => response.text())
+        .then((result) => {
+          // console.log("Slack snooze altered")
+        })
+        .catch((error) => console.log("error", error));
+    }
   });
 }
 
@@ -240,16 +273,16 @@ function makeSlackAPICall(raw, type) {
     if (result.meetSlackKey) {
       key = result.meetSlackKey;
 
-      var myHeaders = new Headers();
-      myHeaders.append(
+      var headers = new Headers();
+      headers.append(
         "Authorization",
         `Bearer ${key}`
       );
-      myHeaders.append("Content-Type", "application/json");
+      headers.append("Content-Type", "application/json");
 
       var requestOptions = {
         method: "POST",
-        headers: myHeaders,
+        headers,
         body: raw,
         redirect: "follow",
       };
